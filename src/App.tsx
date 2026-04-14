@@ -457,7 +457,7 @@ export default function App() {
                   }`}
                 >
                   {isDraggable && (
-                    <div className="mt-1 flex-shrink-0 text-stone-300 cursor-grab active:cursor-grabbing opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <div className="mt-1 flex-shrink-0 text-stone-300 cursor-grab active:cursor-grabbing transition-opacity">
                       <GripVertical size={14} />
                     </div>
                   )}
@@ -599,7 +599,7 @@ export default function App() {
                         </div>
                       )}
                     </div>
-                    <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 flex items-center gap-1 transition-all flex-shrink-0">
+                    <div className="flex items-center gap-1 transition-all flex-shrink-0">
                       {isWeeklyGoal && (
                         <button 
                           onClick={() => copyToToday(task)}
