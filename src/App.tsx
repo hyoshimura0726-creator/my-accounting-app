@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Check, Plus, Trash2, RotateCcw, X, Target, Pencil, Flag, ArrowUpDown, Repeat, CalendarPlus, CalendarDays, BarChart3, Trophy, Calendar, AlertCircle, GripVertical } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Check, Plus, Trash2, RotateCcw, X, Target, Pencil, Flag, ArrowUpDown, Repeat, CalendarPlus, CalendarDays, BarChart3, Trophy, Calendar, AlertCircle, GripVertical, Bell } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 type Priority = 'low' | 'medium' | 'high';
 type SortMode = 'creation' | 'priority' | 'completion';
@@ -12,6 +13,7 @@ type Task = {
   priority?: Priority;
   recurrence?: Recurrence;
   dueDate?: string;
+  reminderTime?: string; // HH:mm format
 };
 
 type HistoryEntry = {
@@ -60,10 +62,12 @@ export default function App() {
   const [newTaskPriority, setNewTaskPriority] = useState<{ [key: string]: Priority }>({});
   const [newTaskRecurrence, setNewTaskRecurrence] = useState<{ [key: string]: Recurrence }>({});
   const [newTaskDueDate, setNewTaskDueDate] = useState<{ [key: string]: string }>({});
+  const [newTaskReminder, setNewTaskReminder] = useState<{ [key: string]: string }>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<{key: string, id: string} | null>(null);
   const [editTaskText, setEditTaskText] = useState('');
   const [editTaskDueDate, setEditTaskDueDate] = useState('');
+  const [editTaskReminder, setEditTaskReminder] = useState('');
   const [editTaskPriority, setEditTaskPriority] = useState<Priority>('low');
   const [editTaskRecurrence, setEditTaskRecurrence] = useState<Recurrence>('none');
   const [activeTab, setActiveTab] = useState<'tasks' | 'history'>('tasks');
@@ -83,6 +87,45 @@ export default function App() {
     }
     return {};
   });
+  const notifiedTasks = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  useEffect(() => {
+    const checkReminders = () => {
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+      const now = new Date();
+      const currentHours = String(now.getHours()).padStart(2, '0');
+      const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+      const currentTime = `${currentHours}:${currentMinutes}`;
+      const currentDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+      ALL_KEYS.forEach(key => {
+        weekData[key].forEach(task => {
+          if (!task.completed && task.dueDate === currentDate && task.reminderTime === currentTime) {
+            const notificationKey = `${task.id}-${currentDate}-${currentTime}`;
+            if (!notifiedTasks.current.has(notificationKey)) {
+              new Notification('タスクのリマインダー', {
+                body: task.text,
+                icon: '/favicon.ico' // Optional: add an icon if you have one
+              });
+              notifiedTasks.current.add(notificationKey);
+            }
+          }
+        });
+      });
+    };
+
+    const intervalId = setInterval(checkReminders, 60000); // Check every minute
+    checkReminders(); // Initial check
+    
+    return () => clearInterval(intervalId);
+  }, [weekData]);
 
   const cyclePriority = (current?: Priority): Priority => {
     if (current === 'low') return 'medium';
@@ -137,15 +180,17 @@ export default function App() {
     const priority = newTaskPriority[key] || 'low';
     const recurrence = newTaskRecurrence[key] || 'none';
     const dueDate = newTaskDueDate[key] || undefined;
+    const reminderTime = newTaskReminder[key] || undefined;
 
     setWeekData(prev => ({
       ...prev,
-      [key]: [...prev[key], { id: crypto.randomUUID(), text, completed: false, priority, recurrence, dueDate }]
+      [key]: [...prev[key], { id: crypto.randomUUID(), text, completed: false, priority, recurrence, dueDate, reminderTime }]
     }));
     setNewTaskText(prev => ({ ...prev, [key]: '' }));
     setNewTaskPriority(prev => ({ ...prev, [key]: 'low' }));
     setNewTaskRecurrence(prev => ({ ...prev, [key]: 'none' }));
     setNewTaskDueDate(prev => ({ ...prev, [key]: '' }));
+    setNewTaskReminder(prev => ({ ...prev, [key]: '' }));
   };
 
   const toggleTask = (key: string, taskId: string) => {
@@ -229,7 +274,8 @@ export default function App() {
           text: editTaskText.trim(), 
           dueDate: editTaskDueDate || undefined,
           priority: editTaskPriority,
-          recurrence: editTaskRecurrence
+          recurrence: editTaskRecurrence,
+          reminderTime: editTaskReminder || undefined
         } : task
       )
     }));
@@ -380,48 +426,64 @@ export default function App() {
           {sortedTasks.length === 0 ? (
             <p className="text-sm text-stone-400 text-center py-4">タスクがありません</p>
           ) : (
-            sortedTasks.map((task, index) => {
-              const isEditing = editingTask?.key === key && editingTask?.id === task.id;
-              
-              const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < new Date(new Date().setHours(0, 0, 0, 0));
-              
-              const isDraggable = !sortModes[key] || sortModes[key] === 'creation';
-              const isDragged = draggedItem?.key === key && draggedItem?.index === index;
-              const isDragOver = dragOverItem?.key === key && dragOverItem?.index === index;
-              
-              return (
-              <div 
-                key={task.id} 
-                draggable={isDraggable}
-                onDragStart={(e) => isDraggable && handleDragStart(e, key, index)}
-                onDragEnter={(e) => isDraggable && handleDragEnter(e, key, index)}
-                onDragOver={handleDragOver}
-                onDrop={(e) => isDraggable && handleDrop(e, key, index)}
-                onDragEnd={handleDragEnd}
-                className={`group flex items-start gap-3 p-2 rounded-lg transition-colors ${
-                  isDragged ? 'opacity-30 bg-stone-100' : 'hover:bg-stone-50'
-                } ${
-                  isDragOver ? (draggedItem!.index < index ? 'border-b-2 border-b-blue-400' : 'border-t-2 border-t-blue-400') : ''
-                }`}
-              >
-                {isDraggable && (
-                  <div className="mt-1 flex-shrink-0 text-stone-300 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity">
-                    <GripVertical size={14} />
-                  </div>
-                )}
-                <button 
-                  onClick={() => toggleTask(key, task.id)}
-                  className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                    task.completed 
-                      ? (isWeeklyGoal ? 'bg-orange-400 border-orange-400 text-white' : 'bg-emerald-400 border-emerald-400 text-white')
-                      : `border-stone-300 text-transparent ${isWeeklyGoal ? 'hover:border-orange-400' : 'hover:border-emerald-400'}`
+            <AnimatePresence mode="popLayout">
+              {sortedTasks.map((task, index) => {
+                const isEditing = editingTask?.key === key && editingTask?.id === task.id;
+                
+                const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < new Date(new Date().setHours(0, 0, 0, 0));
+                
+                const isDraggable = !sortModes[key] || sortModes[key] === 'creation';
+                const isDragged = draggedItem?.key === key && draggedItem?.index === index;
+                const isDragOver = dragOverItem?.key === key && dragOverItem?.index === index;
+                
+                return (
+                <motion.div 
+                  layout
+                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                  animate={{ opacity: task.completed ? 0.6 : 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+                  transition={{ duration: 0.2 }}
+                  key={task.id} 
+                  draggable={isDraggable}
+                  onDragStart={(e) => isDraggable && handleDragStart(e, key, index)}
+                  onDragEnter={(e) => isDraggable && handleDragEnter(e, key, index)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => isDraggable && handleDrop(e, key, index)}
+                  onDragEnd={handleDragEnd}
+                  className={`group flex items-start gap-3 p-2 rounded-lg transition-colors ${
+                    isDragged ? 'opacity-30 bg-stone-100' : 'hover:bg-stone-50'
+                  } ${
+                    isDragOver ? (draggedItem!.index < index ? 'border-b-2 border-b-blue-400' : 'border-t-2 border-t-blue-400') : ''
                   }`}
                 >
-                  <Check size={14} strokeWidth={3} />
-                </button>
-                
-                <button 
-                  onClick={() => cycleTaskPriority(key, task.id)}
+                  {isDraggable && (
+                    <div className="mt-1 flex-shrink-0 text-stone-300 cursor-grab active:cursor-grabbing opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                      <GripVertical size={14} />
+                    </div>
+                  )}
+                  <motion.button 
+                    whileTap={{ scale: 0.8 }}
+                    onClick={() => toggleTask(key, task.id)}
+                    className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                      task.completed 
+                        ? (isWeeklyGoal ? 'bg-orange-400 border-orange-400 text-white' : 'bg-emerald-400 border-emerald-400 text-white')
+                        : `border-stone-300 text-stone-100/0 ${isWeeklyGoal ? 'hover:border-orange-400' : 'hover:border-emerald-400'}`
+                    }`}
+                  >
+                    <motion.div
+                      initial={false}
+                      animate={{ 
+                        scale: task.completed ? [0.5, 1.2, 1] : 0.5, 
+                        opacity: task.completed ? 1 : 0 
+                      }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <Check size={14} strokeWidth={3} />
+                    </motion.div>
+                  </motion.button>
+                  
+                  <button 
+                    onClick={() => cycleTaskPriority(key, task.id)}
                   className={`mt-0.5 p-1 rounded hover:bg-stone-200 transition-colors flex-shrink-0 ${
                     task.completed ? 'text-stone-300' : getPriorityColor(task.priority || 'low')
                   }`}
@@ -480,25 +542,40 @@ export default function App() {
                           </span>
                         )}
                       </button>
-                      <input
-                        type="date"
-                        value={editTaskDueDate}
-                        onChange={(e) => setEditTaskDueDate(e.target.value)}
-                        className="text-xs border border-stone-200 rounded px-2 py-1 outline-none focus:border-stone-400"
-                      />
-                      <button 
-                        onClick={() => saveEdit(key, task.id)}
-                        className="text-xs bg-stone-800 text-white px-3 py-1 rounded hover:bg-stone-700 transition-colors ml-auto"
-                      >
-                        保存
-                      </button>
-                      <button 
-                        onClick={() => setEditingTask(null)}
-                        className="text-xs bg-stone-200 text-stone-700 px-3 py-1 rounded hover:bg-stone-300 transition-colors"
-                      >
-                        キャンセル
-                      </button>
                     </div>
+                    <div className="flex items-center gap-2 mt-2">
+                        <input
+                          type="date"
+                          value={editTaskDueDate}
+                          onChange={(e) => setEditTaskDueDate(e.target.value)}
+                          className="text-xs border border-stone-200 rounded px-2 py-1 outline-none focus:border-stone-400"
+                          title="期限を設定"
+                        />
+                        {editTaskDueDate && (
+                          <div className="flex items-center gap-1 border border-stone-200 rounded px-2 py-1 bg-white">
+                            <Bell size={12} className="text-stone-400" />
+                            <input
+                              type="time"
+                              value={editTaskReminder}
+                              onChange={(e) => setEditTaskReminder(e.target.value)}
+                              className="text-xs outline-none focus:ring-0 bg-transparent"
+                              title="リマインダー時間を設定"
+                            />
+                          </div>
+                        )}
+                        <button 
+                          onClick={() => saveEdit(key, task.id)}
+                          className="text-xs bg-stone-800 text-white px-3 py-1 rounded hover:bg-stone-700 transition-colors ml-auto"
+                        >
+                          保存
+                        </button>
+                        <button 
+                          onClick={() => setEditingTask(null)}
+                          className="text-xs bg-stone-200 text-stone-700 px-3 py-1 rounded hover:bg-stone-300 transition-colors"
+                        >
+                          キャンセル
+                        </button>
+                      </div>
                   </div>
                 ) : (
                   <>
@@ -512,11 +589,17 @@ export default function App() {
                         <div className={`text-[10px] mt-1 flex items-center gap-1 font-medium ${isOverdue ? 'text-red-500' : 'text-stone-400'}`}>
                           <Calendar size={10} />
                           {task.dueDate}
+                          {task.reminderTime && (
+                            <span className="flex items-center gap-0.5 ml-1">
+                              <Bell size={10} />
+                              {task.reminderTime}
+                            </span>
+                          )}
                           {isOverdue && <AlertCircle size={10} />}
                         </div>
                       )}
                     </div>
-                    <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all flex-shrink-0">
+                    <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 flex items-center gap-1 transition-all flex-shrink-0">
                       {isWeeklyGoal && (
                         <button 
                           onClick={() => copyToToday(task)}
@@ -531,6 +614,7 @@ export default function App() {
                           setEditingTask({ key, id: task.id });
                           setEditTaskText(task.text);
                           setEditTaskDueDate(task.dueDate || '');
+                          setEditTaskReminder(task.reminderTime || '');
                           setEditTaskPriority(task.priority || 'low');
                           setEditTaskRecurrence(task.recurrence || 'none');
                         }}
@@ -549,8 +633,10 @@ export default function App() {
                     </div>
                   </>
                 )}
-              </div>
-            )})
+              </motion.div>
+            );
+          })}
+            </AnimatePresence>
           )}
         </div>
 
@@ -598,7 +684,7 @@ export default function App() {
               </button>
             </div>
             {newTaskText[key]?.trim() && (
-              <div className="flex items-center pl-10 pr-10 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center pl-10 pr-10 animate-in fade-in slide-in-from-top-2 duration-200 gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5 bg-stone-50 border border-stone-200 rounded-md px-2 py-1">
                   <Calendar size={12} className="text-stone-400" />
                   <input
@@ -611,13 +697,37 @@ export default function App() {
                   {newTaskDueDate[key] && (
                     <button
                       type="button"
-                      onClick={() => setNewTaskDueDate(prev => ({ ...prev, [key]: '' }))}
+                      onClick={() => {
+                        setNewTaskDueDate(prev => ({ ...prev, [key]: '' }));
+                        setNewTaskReminder(prev => ({ ...prev, [key]: '' }));
+                      }}
                       className="text-stone-400 hover:text-stone-600 ml-1"
                     >
                       <X size={12} />
                     </button>
                   )}
                 </div>
+                {newTaskDueDate[key] && (
+                  <div className="flex items-center gap-1.5 bg-stone-50 border border-stone-200 rounded-md px-2 py-1 animate-in fade-in slide-in-from-left-2 duration-200">
+                    <Bell size={12} className="text-stone-400" />
+                    <input
+                      type="time"
+                      value={newTaskReminder[key] || ''}
+                      onChange={(e) => setNewTaskReminder(prev => ({ ...prev, [key]: e.target.value }))}
+                      className="text-xs bg-transparent outline-none text-stone-600"
+                      title="リマインダー時間を設定"
+                    />
+                    {newTaskReminder[key] && (
+                      <button
+                        type="button"
+                        onClick={() => setNewTaskReminder(prev => ({ ...prev, [key]: '' }))}
+                        className="text-stone-400 hover:text-stone-600 ml-1"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </form>
