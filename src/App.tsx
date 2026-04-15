@@ -632,7 +632,7 @@ export default function App() {
   const renderTaskInput = (key: string, type: 'monthly' | 'weekly' | 'daily', period: Period = 'none') => {
     const inputKey = period === 'none' ? key : `${key}-${period}`;
     return (
-      <div className="mt-auto pt-2 border-t border-stone-100/50">
+      <div className="mb-2 pb-2 border-b border-stone-100/50">
         <form 
           onSubmit={(e) => { e.preventDefault(); addTask(key, period); }}
           className="flex flex-col gap-2"
@@ -821,6 +821,7 @@ export default function App() {
                   style={{ width: `${amProgress}%` }}
                 ></div>
               </div>
+              {renderTaskInput(key, type, 'am')}
               <div className="flex-1 overflow-y-auto space-y-1.5 mb-2 min-h-[100px]">
                 {amTasks.length === 0 ? (
                   <p className="text-[10px] text-amber-600/50 text-center py-2">タスクがありません</p>
@@ -830,7 +831,6 @@ export default function App() {
                   </AnimatePresence>
                 )}
               </div>
-              {renderTaskInput(key, type, 'am')}
             </div>
 
             {/* PM Section */}
@@ -847,6 +847,7 @@ export default function App() {
                   style={{ width: `${pmProgress}%` }}
                 ></div>
               </div>
+              {renderTaskInput(key, type, 'pm')}
               <div className="flex-1 overflow-y-auto space-y-1.5 mb-2 min-h-[100px]">
                 {pmTasks.length === 0 ? (
                   <p className="text-[10px] text-indigo-600/50 text-center py-2">タスクがありません</p>
@@ -856,11 +857,11 @@ export default function App() {
                   </AnimatePresence>
                 )}
               </div>
-              {renderTaskInput(key, type, 'pm')}
             </div>
           </div>
         ) : (
-          <>
+          <div className="flex flex-col h-full">
+            {renderTaskInput(key, type, 'none')}
             {/* Task List for Monthly/Weekly */}
             <div className={`flex-1 overflow-y-auto mb-3 space-y-2 ${isMonthlyGoal ? 'min-h-[100px]' : 'min-h-[150px]'}`}>
               {sortedTasks.length === 0 ? (
@@ -871,8 +872,7 @@ export default function App() {
                 </AnimatePresence>
               )}
             </div>
-            {renderTaskInput(key, type, 'none')}
-          </>
+          </div>
         )}
       </div>
     );
