@@ -93,6 +93,21 @@ export default function App() {
     return {};
   });
   const notifiedTasks = useRef<Set<string>>(new Set());
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    if (activeTab === 'tasks') {
+      const todayIndex = (new Date().getDay() + 6) % 7;
+      const todayKey = DAYS[todayIndex];
+      
+      // Scroll to today's card after a short delay to ensure rendering
+      setTimeout(() => {
+        if (cardRefs.current[todayKey]) {
+          cardRefs.current[todayKey]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 300);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
@@ -739,6 +754,10 @@ export default function App() {
     const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     const daysLeft = lastDay.getDate() - today.getDate();
     
+    const todayIndex = (today.getDay() + 6) % 7;
+    const todayKey = DAYS[todayIndex];
+    const isToday = isDaily && key === todayKey;
+    
     const amTasks = sortedTasks.filter(t => t.period === 'am' || !t.period);
     const pmTasks = sortedTasks.filter(t => t.period === 'pm');
     
@@ -748,19 +767,27 @@ export default function App() {
     return (
       <div 
         key={key} 
-        className={`bg-white rounded-2xl shadow-sm border p-4 flex flex-col ${
+        ref={(el) => cardRefs.current[key] = el}
+        className={`bg-white rounded-2xl shadow-sm border p-4 flex flex-col transition-all duration-300 ${
           isMonthlyGoal
             ? 'border-blue-200 bg-blue-50/30 w-full mb-6'
             : isWeeklyGoal 
               ? 'border-orange-200 bg-orange-50/30 lg:h-[calc(100vh-12rem)] lg:sticky lg:top-8' 
-              : 'border-stone-100 h-full'
+              : isToday
+                ? 'border-blue-400 ring-4 ring-blue-50 h-full'
+                : 'border-stone-100 h-full'
         }`}
       >
         <div className="flex justify-between items-center mb-3">
-          <h2 className={`text-lg font-semibold flex items-center gap-2 ${isMonthlyGoal ? 'text-blue-800' : isWeeklyGoal ? 'text-orange-800' : 'text-stone-800'}`}>
+          <h2 className={`text-lg font-semibold flex items-center gap-2 ${isMonthlyGoal ? 'text-blue-800' : isWeeklyGoal ? 'text-orange-800' : isToday ? 'text-blue-700' : 'text-stone-800'}`}>
             {isMonthlyGoal && <CalendarDays size={20} className="text-blue-500" />}
             {isWeeklyGoal && <Target size={20} className="text-orange-500" />}
             {key}
+            {isToday && (
+              <span className="px-2 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded-full animate-pulse shadow-sm">
+                Today
+              </span>
+            )}
           </h2>
           <div className="flex items-center gap-2">
             <div className="relative">
