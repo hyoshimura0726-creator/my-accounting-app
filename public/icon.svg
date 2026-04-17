@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+
+    <!-- Day Gradient -->
+    <linearGradient id="dayGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f97316" />
+      <stop offset="100%" stop-color="#ef4444" />
+    </linearGradient>
+    
+    <!-- Night Gradient -->
+    <linearGradient id="nightGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e3a8a" />
+      <stop offset="100%" stop-color="#172554" />
+    </linearGradient>
+
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- App Icon Base Background -->
+  <rect width="512" height="512" rx="110" fill="url(#bgGrad)" />
+
+  <g transform="translate(256, 230)">
+    <!-- Clock Night Base (Right) -->
+    <path d="M 0 -170 A 170 170 0 0 1 0 170 Z" fill="url(#nightGrad)" />
+    <!-- Clock Day Base (Left) -->
+    <path d="M 0 170 A 170 170 0 0 1 0 -170 Z" fill="url(#dayGrad)" />
+    
+    <!-- Clock Border -->
+    <circle r="170" fill="none" stroke="#bae6fd" stroke-width="6" />
+    <!-- Center Split -->
+    <line x1="0" y1="-170" x2="0" y2="170" stroke="#bae6fd" stroke-width="4" />
+
+    <!-- Sun (Left side) -->
+    <circle cx="-75" cy="0" r="40" fill="#fef08a" filter="url(#glow)" />
+    
+    <!-- Crescent Moon (Right side) -->
+    <!-- Using a circle as base and masking or simply drawing a path -->
+    <path d="M 60 -30 A 35 35 0 1 0 90 35 A 45 45 0 1 1 60 -30 Z" fill="#e2e8f0" filter="url(#glow)"/>
+
+    <!-- Clock Hands -->
+    <g filter="url(#glow)">
+        <line x1="0" y1="0" x2="0" y2="-90" stroke="#ffffff" stroke-width="12" stroke-linecap="round" />
+        <line x1="0" y1="0" x2="60" y2="60" stroke="#ffffff" stroke-width="12" stroke-linecap="round" />
+    </g>
+    <!-- Center Pin -->
+    <circle r="14" fill="#cbd5e1" stroke="#ffffff" stroke-width="4" />
+  </g>
+
+  <!-- Progress Bar Base -->
+  <rect x="80" y="440" width="352" height="28" rx="14" fill="#166534" />
+  <!-- Progress Bar Fill -->
+  <rect x="80" y="440" width="280" height="28" rx="14" fill="#4ade80" filter="url(#glow)"/>
+  <!-- Progress Bar Border -->
+  <rect x="80" y="440" width="352" height="28" rx="14" fill="none" stroke="#86efac" stroke-width="4" />
+
+</svg>
