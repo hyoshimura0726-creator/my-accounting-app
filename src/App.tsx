@@ -42,8 +42,8 @@ type WeekData = {
 
 const MONTHLY_GOAL_KEY = '毎月の目標';
 const WEEKLY_GOAL_KEY = '今週の目標';
-const DAYS = ['月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日'];
-const ALL_KEYS = [MONTHLY_GOAL_KEY, WEEKLY_GOAL_KEY, ...DAYS];
+const BASE_DAYS = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
+const ALL_KEYS = [MONTHLY_GOAL_KEY, WEEKLY_GOAL_KEY, ...BASE_DAYS];
 
 const CATEGORY_COLORS: Record<string, string> = {
   work: 'bg-blue-100/60 hover:bg-blue-200/60 text-blue-900',
@@ -122,6 +122,15 @@ export default function App() {
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // 週の始まりの設定（0=日曜日, 1=月曜日, ...）
+  const [startOfWeek, setStartOfWeek] = useState<number>(() => {
+    const saved = localStorage.getItem('weeklyStartOfWeek');
+    return saved ? parseInt(saved, 10) : 1; // デフォルトは月曜日(1)
+  });
+  
+  // startOfWeek に基づく表示用曜日の配列
+  const displayDays = [...BASE_DAYS.slice(startOfWeek), ...BASE_DAYS.slice(0, startOfWeek)];
+
   const notifiedTasks = useRef<Set<string>>(new Set());
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -178,9 +187,13 @@ ${taskTexts || 'タスクなし'}
   };
 
   useEffect(() => {
+    localStorage.setItem('weeklyStartOfWeek', startOfWeek.toString());
+  }, [startOfWeek]);
+
+  useEffect(() => {
     if (activeTab === 'tasks') {
-      const todayIndex = (new Date().getDay() + 6) % 7;
-      const todayKey = DAYS[todayIndex];
+      const todayIndex = new Date().getDay();
+      const todayKey = BASE_DAYS[todayIndex];
       
       // Scroll to today's card after a short delay to ensure rendering
       setTimeout(() => {
@@ -388,8 +401,7 @@ ${taskTexts || 'タスクなし'}
 
   const getTodayKey = () => {
     const today = new Date().getDay();
-    const dayMap = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
-    return dayMap[today];
+    return BASE_DAYS[today];
   };
 
   const copyToToday = (task: Task) => {
@@ -879,8 +891,8 @@ ${taskTexts || 'タスクなし'}
     const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     const daysLeft = lastDay.getDate() - today.getDate();
     
-    const todayIndex = (today.getDay() + 6) % 7;
-    const todayKey = DAYS[todayIndex];
+    const todayIndex = today.getDay();
+    const todayKey = BASE_DAYS[todayIndex];
     const isToday = isDaily && key === todayKey;
     
     const amTasks = sortedTasks.filter(t => t.period === 'am' || !t.period);
@@ -1269,13 +1281,27 @@ ${taskTexts || 'タスクなし'}
             <h1 className="text-3xl font-bold tracking-tight text-stone-900">Weekly Tasks</h1>
             <p className="text-stone-500 mt-1">1週間のやる事リスト</p>
           </div>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 text-stone-700 px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
-          >
-            <RotateCcw size={16} />
-            新しい週を始める
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-white border border-stone-200 shadow-sm rounded-full px-3 py-2 text-sm">
+              <span className="text-stone-500 mr-2 whitespace-nowrap">週の開始:</span>
+              <select
+                value={startOfWeek}
+                onChange={(e) => setStartOfWeek(parseInt(e.target.value, 10))}
+                className="bg-transparent text-stone-700 font-medium outline-none cursor-pointer"
+              >
+                {BASE_DAYS.map((day, index) => (
+                  <option key={index} value={index}>{day}</option>
+                ))}
+              </select>
+            </div>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 text-stone-700 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap"
+            >
+              <RotateCcw size={16} />
+              新しい週を始める
+            </button>
+          </div>
         </header>
 
         <div className="flex space-x-6 mb-8 border-b border-stone-200">
@@ -1310,7 +1336,7 @@ ${taskTexts || 'タスクなし'}
               
               {/* Days Grid */}
               <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                {DAYS.map(day => renderCard(day, 'daily'))}
+                {displayDays.map(day => renderCard(day, 'daily'))}
               </div>
             </div>
             
