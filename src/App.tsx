@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ReactSortable } from 'react-sortablejs';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
+import { GoogleGenAI } from '@google/genai';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -131,6 +132,8 @@ export default function App() {
   const [newCatColor, setNewCatColor] = useState('blue');
   const [editingCategoryTarget, setEditingCategoryTarget] = useState<string | null>(null);
 
+  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
+
   const [history, setHistory] = useState<HistoryEntry[]>(() => {
     const saved = localStorage.getItem('weeklyTasksHistory');
     if (saved) {
@@ -198,19 +201,13 @@ ${taskTexts || 'タスクなし'}
 
 返答のトーン：親しみやすく、優しい敬語。絵文字も少し使ってください。見出しなどは不要で、コメント本文のみを直接出力してください。`;
 
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
+      const ai = new GoogleGenAI({ apiKey: geminiKey.trim() });
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
       });
 
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.error || `HTTP error! status: ${res.status}`);
-      }
-
-      setAiAnalysis(data.text || '解析に成功しましたが、コメントを受け取れませんでした。');
+      setAiAnalysis(response.text || '解析に成功しましたが、コメントを受け取れませんでした。');
     } catch (error: any) {
       console.error('AI Analysis failed:', error);
       setAiAnalysis(`AIの分析中にエラーが発生しました。\n詳細: ${error?.message || error}`);
@@ -222,6 +219,10 @@ ${taskTexts || 'タスクなし'}
   useEffect(() => {
     localStorage.setItem('customCategories', JSON.stringify(categories));
   }, [categories]);
+
+  useEffect(() => {
+    localStorage.setItem('geminiApiKey', geminiKey);
+  }, [geminiKey]);
 
   useEffect(() => {
     localStorage.setItem('weeklyStartOfWeek', startOfWeek.toString());
@@ -1308,22 +1309,41 @@ ${taskTexts || 'タスクなし'}
 
         {/* AI Analysis Button & Result */}
         <div className="border-t border-stone-100 pt-6 mt-2">
-          <button
-            onClick={analyzeTasksWithAI}
-            disabled={isAnalyzing || totalTasks === 0}
-            className={`w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 font-medium transition-all ${
-              isAnalyzing || totalTasks === 0
-                ? 'bg-stone-100 text-stone-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 shadow-sm hover:shadow active:scale-[0.98]'
-            }`}
-          >
-            {isAnalyzing ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <Sparkles size={18} />
-            )}
-            {isAnalyzing ? '分析しています...' : 'AIに今週の頑張りを分析してもらう ✨'}
-          </button>
+          {!geminiKey ? (
+            <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 flex flex-col gap-3">
+              <h4 className="text-sm font-bold text-blue-900 flex items-center gap-1.5 justify-center">
+                <Sparkles size={16} /> AI分析機能を利用する
+              </h4>
+              <p className="text-xs text-blue-800/70 text-center leading-relaxed">
+                GitHub Pages上でAI分析機能を利用するには、ご自身のGemini APIキーの入力が必要です。<br />
+                ※キーはお使いのブラウザ内部にのみ保存されます。
+              </p>
+              <input
+                type="password"
+                placeholder="AIzaSy..."
+                value={geminiKey}
+                onChange={(e) => setGeminiKey(e.target.value)}
+                className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all font-mono"
+              />
+            </div>
+          ) : (
+            <button
+              onClick={analyzeTasksWithAI}
+              disabled={isAnalyzing || totalTasks === 0}
+              className={`w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 font-medium transition-all ${
+                isAnalyzing || totalTasks === 0
+                  ? 'bg-stone-100 text-stone-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 shadow-sm hover:shadow active:scale-[0.98]'
+              }`}
+            >
+              {isAnalyzing ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Sparkles size={18} />
+              )}
+              {isAnalyzing ? '分析しています...' : 'AIに今週の頑張りを分析してもらう ✨'}
+            </button>
+          )}
 
           <AnimatePresence>
             {aiAnalysis && (
