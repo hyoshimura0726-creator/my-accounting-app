@@ -11,7 +11,7 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 type Priority = 'low' | 'medium' | 'high';
 type SortMode = 'creation' | 'priority' | 'completion';
 type Recurrence = 'none' | 'daily' | 'weekly' | 'monthly';
-type Category = 'work' | 'study' | 'life' | 'hobby' | 'other' | 'none';
+type Category = string;
 
 type Period = 'am' | 'pm' | 'none';
 
@@ -45,23 +45,39 @@ const WEEKLY_GOAL_KEY = '今週の目標';
 const BASE_DAYS = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
 const ALL_KEYS = [MONTHLY_GOAL_KEY, WEEKLY_GOAL_KEY, ...BASE_DAYS];
 
-const CATEGORY_COLORS: Record<string, string> = {
-  work: 'bg-blue-100/60 hover:bg-blue-200/60 text-blue-900',
-  study: 'bg-emerald-100/60 hover:bg-emerald-200/60 text-emerald-900',
-  life: 'bg-orange-100/60 hover:bg-orange-200/60 text-orange-900',
-  hobby: 'bg-pink-100/60 hover:bg-pink-200/60 text-pink-900',
-  other: 'bg-purple-100/60 hover:bg-purple-200/60 text-purple-900',
-  none: 'hover:bg-stone-50 bg-transparent text-stone-700',
+type ColorPalette = {
+  id: string;
+  name: string;
+  bgHex: string;
+  borderHex: string;
+  taskBgClass: string;
+  btnBgClass: string;
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  work: '仕事',
-  study: '勉強',
-  life: '生活',
-  hobby: '趣味',
-  other: 'その他',
-  none: '未分類',
+const COLOR_PALETTES: Record<string, ColorPalette> = {
+  blue: { id: 'blue', name: 'ブルー', bgHex: '#bfdbfe', borderHex: '#60a5fa', taskBgClass: 'bg-blue-100/60 hover:bg-blue-200/60 text-blue-900 border border-transparent hover:border-blue-200', btnBgClass: 'text-blue-500 bg-blue-50' },
+  emerald: { id: 'emerald', name: 'グリーン', bgHex: '#a7f3d0', borderHex: '#34d399', taskBgClass: 'bg-emerald-100/60 hover:bg-emerald-200/60 text-emerald-900 border border-transparent hover:border-emerald-200', btnBgClass: 'text-emerald-500 bg-emerald-50' },
+  orange: { id: 'orange', name: 'オレンジ', bgHex: '#fed7aa', borderHex: '#fb923c', taskBgClass: 'bg-orange-100/60 hover:bg-orange-200/60 text-orange-900 border border-transparent hover:border-orange-200', btnBgClass: 'text-orange-500 bg-orange-50' },
+  pink: { id: 'pink', name: 'ピンク', bgHex: '#fbcfe8', borderHex: '#f472b6', taskBgClass: 'bg-pink-100/60 hover:bg-pink-200/60 text-pink-900 border border-transparent hover:border-pink-200', btnBgClass: 'text-pink-500 bg-pink-50' },
+  purple: { id: 'purple', name: 'パープル', bgHex: '#e9d5ff', borderHex: '#c084fc', taskBgClass: 'bg-purple-100/60 hover:bg-purple-200/60 text-purple-900 border border-transparent hover:border-purple-200', btnBgClass: 'text-purple-500 bg-purple-50' },
+  red: { id: 'red', name: 'レッド', bgHex: '#fecaca', borderHex: '#f87171', taskBgClass: 'bg-red-100/60 hover:bg-red-200/60 text-red-900 border border-transparent hover:border-red-200', btnBgClass: 'text-red-500 bg-red-50' },
+  yellow: { id: 'yellow', name: 'イエロー', bgHex: '#fef08a', borderHex: '#facc15', taskBgClass: 'bg-yellow-100/60 hover:bg-yellow-200/60 text-yellow-900 border border-transparent hover:border-yellow-200', btnBgClass: 'text-yellow-500 bg-yellow-50' },
+  stone: { id: 'stone', name: 'グレー', bgHex: '#f5f5f4', borderHex: '#d6d3d1', taskBgClass: 'bg-stone-100/60 hover:bg-stone-200/60 text-stone-900 border border-transparent hover:border-stone-200', btnBgClass: 'text-stone-500 bg-stone-50' }
 };
+
+type CategoryData = {
+  id: string;
+  name: string;
+  colorId: string;
+};
+
+const DEFAULT_CATEGORIES: CategoryData[] = [
+  { id: 'work', name: '仕事', colorId: 'blue' },
+  { id: 'study', name: '勉強', colorId: 'emerald' },
+  { id: 'life', name: '生活', colorId: 'orange' },
+  { id: 'hobby', name: '趣味', colorId: 'pink' },
+  { id: 'other', name: 'その他', colorId: 'purple' },
+];
 
 const initialData: WeekData = ALL_KEYS.reduce((acc, key) => {
   acc[key] = [];
@@ -104,6 +120,18 @@ export default function App() {
   const [editTaskRecurrence, setEditTaskRecurrence] = useState<Recurrence>('none');
   const [editTaskCategory, setEditTaskCategory] = useState<Category>('none');
   const [activeTab, setActiveTab] = useState<'tasks' | 'history'>('tasks');
+  const [categories, setCategories] = useState<CategoryData[]>(() => {
+    const saved = localStorage.getItem('customCategories');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return DEFAULT_CATEGORIES;
+  });
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatColor, setNewCatColor] = useState('blue');
+  const [editingCategoryTarget, setEditingCategoryTarget] = useState<string | null>(null);
+
   const [history, setHistory] = useState<HistoryEntry[]>(() => {
     const saved = localStorage.getItem('weeklyTasksHistory');
     if (saved) {
@@ -142,16 +170,16 @@ export default function App() {
       const allTasks = Object.values(weekData).flat();
       const total = allTasks.length;
       const completed = allTasks.filter(t => t.completed).length;
-      const categories = allTasks.reduce((acc, t) => {
-        const cat = t.category || 'none';
-        acc[cat] = (acc[cat] || 0) + 1;
+      const catCounts = allTasks.reduce((acc, t) => {
+        const catId = t.category || 'none';
+        acc[catId] = (acc[catId] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
       // Fetch top tasks excluding sensitive PII
       const taskTexts = allTasks
         .slice(0, 15)
-        .map(t => `- [${t.completed ? '済' : '未'}] ${t.text} (カテゴリ: ${CATEGORY_LABELS[t.category || 'none']})`)
+        .map(t => `- [${t.completed ? '済' : '未'}] ${t.text} (カテゴリ: ${getCategoryTheme(t.category).name})`)
         .join('\n');
 
       const prompt = `あなたはユーザーの専属タスク応援アシスタントです。
@@ -164,7 +192,7 @@ export default function App() {
 完了率: ${total > 0 ? Math.round((completed / total) * 100) : 0}%
 
 ■登録されているタスクのカテゴリ構成
-${Object.entries(categories).map(([k, v]) => `${CATEGORY_LABELS[k]}: ${v}件`).join('\n')}
+${Object.entries(catCounts).map(([k, v]) => `${getCategoryTheme(k).name}: ${v}件`).join('\n')}
 
 ■主なタスク内容（抜粋）
 ${taskTexts || 'タスクなし'}
@@ -185,6 +213,10 @@ ${taskTexts || 'タスクなし'}
       setIsAnalyzing(false);
     }
   };
+
+  useEffect(() => {
+    localStorage.setItem('customCategories', JSON.stringify(categories));
+  }, [categories]);
 
   useEffect(() => {
     localStorage.setItem('weeklyStartOfWeek', startOfWeek.toString());
@@ -277,22 +309,42 @@ ${taskTexts || 'タスクなし'}
     return '繰り返しなし';
   };
 
-  const cycleCategory = (current?: Category): Category => {
-    if (!current || current === 'none') return 'work';
-    if (current === 'work') return 'study';
-    if (current === 'study') return 'life';
-    if (current === 'life') return 'hobby';
-    if (current === 'hobby') return 'other';
-    return 'none';
+  const getCategoryTheme = (id?: Category) => {
+    if (!id || id === 'none') {
+      return { 
+        name: '未分類', 
+        taskBgClass: 'hover:bg-stone-50 bg-transparent text-stone-700 border border-transparent', 
+        btnBgClass: 'text-stone-400 hover:bg-stone-100',
+        bgHex: '#f5f5f5', 
+        borderHex: '#e5e5e5' 
+      };
+    }
+    const cat = categories.find(c => c.id === id);
+    if (!cat) {
+      return { 
+        name: '未分類', 
+        taskBgClass: 'hover:bg-stone-50 bg-transparent text-stone-700 border border-transparent', 
+        btnBgClass: 'text-stone-400 hover:bg-stone-100',
+        bgHex: '#f5f5f5', 
+        borderHex: '#e5e5e5' 
+      };
+    }
+    const palette = COLOR_PALETTES[cat.colorId] || COLOR_PALETTES['stone'];
+    return {
+      name: cat.name,
+      taskBgClass: palette.taskBgClass,
+      btnBgClass: palette.btnBgClass,
+      bgHex: palette.bgHex,
+      borderHex: palette.borderHex
+    };
   };
 
-  const getCategoryColorBtn = (c?: Category) => {
-    if (c === 'work') return 'text-blue-500 bg-blue-50';
-    if (c === 'study') return 'text-emerald-500 bg-emerald-50';
-    if (c === 'life') return 'text-orange-500 bg-orange-50';
-    if (c === 'hobby') return 'text-pink-500 bg-pink-50';
-    if (c === 'other') return 'text-purple-500 bg-purple-50';
-    return 'text-stone-300 hover:bg-stone-100';
+  const cycleCategory = (current?: Category): Category => {
+    if (categories.length === 0) return 'none';
+    if (!current || current === 'none') return categories[0].id;
+    const idx = categories.findIndex(c => c.id === current);
+    if (idx === -1 || idx === categories.length - 1) return 'none';
+    return categories[idx + 1].id;
   };
 
   useEffect(() => {
@@ -539,7 +591,7 @@ ${taskTexts || 'タスクなし'}
     const isEditing = editingTask?.key === key && editingTask?.id === task.id;
     const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < new Date(new Date().setHours(0, 0, 0, 0));
     const isDraggable = !sortModes[key] || sortModes[key] === 'creation';
-    const taskBgClass = task.completed ? 'hover:bg-stone-50 bg-transparent text-stone-400' : (CATEGORY_COLORS[task.category || 'none']);
+    const taskBgClass = task.completed ? 'hover:bg-stone-50 bg-transparent text-stone-400 border border-transparent' : getCategoryTheme(task.category).taskBgClass;
 
     return (
       <motion.div 
@@ -601,15 +653,31 @@ ${taskTexts || 'タスクなし'}
           )}
         </button>
 
-        <button 
-          onClick={() => cycleTaskCategory(key, task.id)}
-          className={`mt-0.5 p-1 rounded transition-colors flex-shrink-0 flex items-center ${
-            task.completed ? 'text-stone-300' : getCategoryColorBtn(task.category)
+        <div 
+          className={`mt-0.5 relative flex items-center p-1 rounded transition-colors flex-shrink-0 cursor-pointer ${
+            task.completed ? 'text-stone-300' : getCategoryTheme(task.category).btnBgClass
           }`}
-          title={`カテゴリ: ${CATEGORY_LABELS[task.category || 'none']}`}
+          title="カテゴリを変更"
         >
           <Tag size={14} />
-        </button>
+          <select
+            value={task.category || 'none'}
+            onChange={(e) => {
+              setWeekData(prev => ({
+                ...prev,
+                [key]: prev[key].map(t => 
+                  t.id === task.id ? { ...t, category: e.target.value } : t
+                )
+              }));
+            }}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          >
+            <option value="none">未分類</option>
+            {categories.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
 
         {isEditing ? (
           <div className="flex-1 flex flex-col gap-2">
@@ -646,19 +714,24 @@ ${taskTexts || 'タスクなし'}
                   </span>
                 )}
               </button>
-              <button
-                type="button"
-                onClick={() => setEditTaskCategory(prev => cycleCategory(prev))}
-                className={`p-1.5 rounded transition-colors flex items-center flex-shrink-0 ${getCategoryColorBtn(editTaskCategory)}`}
-                title={`カテゴリ: ${CATEGORY_LABELS[editTaskCategory]}`}
-              >
+              <div className={`p-1.5 relative rounded transition-colors flex items-center flex-shrink-0 cursor-pointer ${getCategoryTheme(editTaskCategory).btnBgClass}`}>
                 <Tag size={14} />
+                <select
+                  value={editTaskCategory || 'none'}
+                  onChange={(e) => setEditTaskCategory(e.target.value)}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                >
+                  <option value="none">未分類</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
                 {editTaskCategory && editTaskCategory !== 'none' && (
-                  <span className="text-[9px] font-bold ml-0.5 leading-none">
-                    {CATEGORY_LABELS[editTaskCategory]}
+                  <span className="text-[9px] font-bold ml-0.5 leading-none pointer-events-none truncate max-w-[50px]">
+                    {getCategoryTheme(editTaskCategory).name}
                   </span>
                 )}
-              </button>
+              </div>
             </div>
             <div className="flex items-center gap-2 mt-2">
                 <input
@@ -798,19 +871,24 @@ ${taskTexts || 'タスクなし'}
                 </span>
               )}
             </button>
-            <button
-              type="button"
-              onClick={() => setNewTaskCategory(prev => ({ ...prev, [inputKey]: cycleCategory(prev[inputKey]) }))}
-              className={`p-1.5 rounded-lg transition-colors flex items-center flex-shrink-0 ${getCategoryColorBtn(newTaskCategory[inputKey])}`}
-              title={`カテゴリ: ${CATEGORY_LABELS[newTaskCategory[inputKey] || 'none']}`}
-            >
+            <div className={`p-1.5 relative rounded-lg transition-colors flex items-center flex-shrink-0 cursor-pointer ${getCategoryTheme(newTaskCategory[inputKey]).btnBgClass}`}>
               <Tag size={14} />
+              <select
+                value={newTaskCategory[inputKey] || 'none'}
+                onChange={(e) => setNewTaskCategory(prev => ({ ...prev, [inputKey]: e.target.value }))}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              >
+                <option value="none">未分類</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
               {newTaskCategory[inputKey] && newTaskCategory[inputKey] !== 'none' && (
-                <span className="text-[9px] font-bold ml-0.5 leading-none">
-                  {CATEGORY_LABELS[newTaskCategory[inputKey]]}
+                <span className="text-[9px] font-bold ml-0.5 leading-none pointer-events-none truncate max-w-[40px]">
+                  {getCategoryTheme(newTaskCategory[inputKey]).name}
                 </span>
               )}
-            </button>
+            </div>
             <input
               type="text"
               placeholder="タスクを追加..."
@@ -1166,19 +1244,18 @@ ${taskTexts || 'タスクなし'}
   };
 
   const renderCategoryChart = () => {
-    const categories: Record<string, number> = {
-      work: 0,
-      study: 0,
-      life: 0,
-      hobby: 0,
-      other: 0,
-      none: 0,
-    };
+    const catCounts: Record<string, number> = { none: 0 };
+    categories.forEach(c => { catCounts[c.id] = 0; });
 
     let totalTasks = 0;
     ALL_KEYS.forEach(key => {
       weekData[key].forEach(task => {
-        categories[task.category || 'none'] += 1;
+        const c = task.category || 'none';
+        if (catCounts[c] !== undefined) {
+          catCounts[c] += 1;
+        } else {
+          catCounts['none'] += 1;
+        }
         totalTasks += 1;
       });
     });
@@ -1187,27 +1264,19 @@ ${taskTexts || 'タスクなし'}
       return null;
     }
 
+    const availableIds = ['none', ...categories.map(c => c.id)].filter(id => catCounts[id] > 0);
+    const labels = availableIds.map(id => getCategoryTheme(id).name);
+    const dataValues = availableIds.map(id => catCounts[id]);
+    const bgColors = availableIds.map(id => getCategoryTheme(id).bgHex);
+    const borderColors = availableIds.map(id => getCategoryTheme(id).borderHex);
+
     const data = {
-      labels: ['仕事', '勉強', '生活', '趣味', 'その他', '未分類'],
+      labels,
       datasets: [
         {
-          data: [categories.work, categories.study, categories.life, categories.hobby, categories.other, categories.none],
-          backgroundColor: [
-            '#bfdbfe', // blue-200
-            '#a7f3d0', // emerald-200
-            '#fed7aa', // orange-200
-            '#fbcfe8', // pink-200
-            '#e9d5ff', // purple-200
-            '#f5f5f4', // stone-100
-          ],
-          borderColor: [
-            '#60a5fa', // blue-400
-            '#34d399', // emerald-400
-            '#fb923c', // orange-400
-            '#f472b6', // pink-400
-            '#c084fc', // purple-400
-            '#d6d3d1', // stone-300
-          ],
+          data: dataValues,
+          backgroundColor: bgColors,
+          borderColor: borderColors,
           borderWidth: 1,
         },
       ],
@@ -1295,11 +1364,18 @@ ${taskTexts || 'タスクなし'}
               </select>
             </div>
             <button 
-              onClick={() => setIsModalOpen(true)}
+              onClick={() => setIsCategoryModalOpen(true)}
               className="flex items-center gap-2 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 text-stone-700 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap"
             >
+              <Tag size={16} />
+              ラベル管理
+            </button>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 bg-gradient-to-br from-stone-800 to-stone-700 hover:from-stone-700 hover:to-stone-600 text-white shadow-sm px-4 py-2.5 rounded-full text-sm font-medium transition-all whitespace-nowrap"
+            >
               <RotateCcw size={16} />
-              新しい週を始める
+              新しい週
             </button>
           </div>
         </header>
@@ -1348,7 +1424,140 @@ ${taskTexts || 'タスクなし'}
         )}
       </div>
 
-      {/* Modal */}
+      {/* Label Management Modal */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 bg-stone-900/20 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6 border-b border-stone-100 pb-4">
+                <h3 className="text-xl font-bold text-stone-900 flex items-center gap-2">
+                  <Tag size={20} className="text-stone-400" />
+                  ラベル（カテゴリ）管理
+                </h3>
+                <button 
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="text-stone-400 hover:text-stone-600 p-1 rounded-full hover:bg-stone-100 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-4 mb-6 max-h-[40vh] overflow-y-auto pr-1">
+                {categories.map((cat, i) => (
+                  <div key={cat.id} className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between group">
+                      <div className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 ${COLOR_PALETTES[cat.colorId].taskBgClass.split('border ')[0]}`}>
+                        {cat.name}
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => {
+                            if (editingCategoryTarget === cat.id) {
+                              setEditingCategoryTarget(null);
+                            } else {
+                              setEditingCategoryTarget(cat.id);
+                              setNewCatName(cat.name);
+                              setNewCatColor(cat.colorId);
+                            }
+                          }}
+                          className="p-1.5 text-stone-400 hover:text-blue-500 rounded hover:bg-stone-100 transition-colors"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if(confirm(`ラベル「${cat.name}」を削除しますか？\n（すでにこのラベルが設定されているタスクは「未分類」扱いになります）`)) {
+                              setCategories(prev => prev.filter(c => c.id !== cat.id));
+                            }
+                          }}
+                          className="p-1.5 text-stone-400 hover:text-red-500 rounded hover:bg-stone-100 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    {editingCategoryTarget === cat.id && (
+                      <div className="bg-stone-50 p-3 rounded-lg border border-stone-200 flex flex-col gap-3 animate-in slide-in-from-top-2">
+                        <input
+                          type="text"
+                          value={newCatName}
+                          onChange={e => setNewCatName(e.target.value)}
+                          className="w-full bg-white border border-stone-200 rounded-md px-3 py-1.5 text-sm outline-none focus:border-stone-400"
+                          placeholder="ラベル名"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          {Object.values(COLOR_PALETTES).map(palette => (
+                            <button
+                              key={palette.id}
+                              onClick={() => setNewCatColor(palette.id)}
+                              className={`w-6 h-6 rounded-full border-2 transition-transform ${newCatColor === palette.id ? 'scale-125 border-stone-800' : 'border-transparent'}`}
+                              style={{ backgroundColor: palette.bgHex }}
+                              title={palette.name}
+                            />
+                          ))}
+                        </div>
+                        <div className="flex justify-end gap-2 mt-1">
+                          <button onClick={() => setEditingCategoryTarget(null)} className="text-xs text-stone-500 px-2 py-1">キャンセル</button>
+                          <button 
+                            onClick={() => {
+                              if (!newCatName.trim()) return;
+                              setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, name: newCatName.trim(), colorId: newCatColor } : c));
+                              setEditingCategoryTarget(null);
+                            }}
+                            className="text-xs bg-stone-800 text-white px-3 py-1.5 rounded-md hover:bg-stone-700"
+                          >保存</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {editingCategoryTarget === null && (
+                <div className="bg-stone-50 rounded-xl p-4 border border-stone-200">
+                  <h4 className="text-sm font-bold text-stone-700 mb-3 flex items-center gap-1">
+                    <Plus size={16} /> 新しいラベルを追加
+                  </h4>
+                  <div className="flex flex-col gap-3">
+                    <input
+                      type="text"
+                      value={newCatName}
+                      onChange={e => setNewCatName(e.target.value)}
+                      placeholder="例：買い物、運動..."
+                      className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-stone-400"
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      {Object.values(COLOR_PALETTES).map(palette => (
+                        <button
+                          key={palette.id}
+                          onClick={() => setNewCatColor(palette.id)}
+                          className={`w-6 h-6 rounded-full border-2 transition-transform ${newCatColor === palette.id ? 'scale-125 border-stone-800' : 'border-transparent'}`}
+                          style={{ backgroundColor: palette.bgHex }}
+                          title={palette.name}
+                        />
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!newCatName.trim()) return;
+                        setCategories(prev => [...prev, { id: crypto.randomUUID(), name: newCatName.trim(), colorId: newCatColor }]);
+                        setNewCatName('');
+                        setNewCatColor('blue');
+                      }}
+                      disabled={!newCatName.trim()}
+                      className="w-full mt-2 bg-stone-800 disabled:bg-stone-300 text-white font-medium py-2 rounded-lg text-sm transition-colors"
+                    >
+                      追加
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Week Reset Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-stone-900/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
