@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ReactSortable } from 'react-sortablejs';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
-import { GoogleGenAI } from '@google/genai';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -199,13 +198,19 @@ ${taskTexts || 'タスクなし'}
 
 返答のトーン：親しみやすく、優しい敬語。絵文字も少し使ってください。見出しなどは不要で、コメント本文のみを直接出力してください。`;
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
       });
 
-      setAiAnalysis(response.text || '解析に成功しましたが、コメントを受け取れませんでした。');
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP error! status: ${res.status}`);
+      }
+
+      setAiAnalysis(data.text || '解析に成功しましたが、コメントを受け取れませんでした。');
     } catch (error: any) {
       console.error('AI Analysis failed:', error);
       setAiAnalysis(`AIの分析中にエラーが発生しました。\n詳細: ${error?.message || error}`);
