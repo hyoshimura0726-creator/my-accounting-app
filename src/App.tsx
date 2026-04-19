@@ -199,16 +199,16 @@ ${taskTexts || 'タスクなし'}
 
 返答のトーン：親しみやすく、優しい敬語。絵文字も少し使ってください。見出しなどは不要で、コメント本文のみを直接出力してください。`;
 
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY });
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
       });
 
       setAiAnalysis(response.text || '解析に成功しましたが、コメントを受け取れませんでした。');
-    } catch (error) {
+    } catch (error: any) {
       console.error('AI Analysis failed:', error);
-      setAiAnalysis('AIの分析中にエラーが発生しました。ネットワークの設定を確認して再度お試しください。');
+      setAiAnalysis(`AIの分析中にエラーが発生しました。\n詳細: ${error?.message || error}`);
     } finally {
       setIsAnalyzing(false);
     }
