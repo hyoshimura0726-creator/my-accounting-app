@@ -831,17 +831,17 @@ ${taskTexts || 'タスクなし'}
         exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
         transition={{ duration: 0.2 }}
         key={task.id} 
-        className={`group flex items-start gap-3 p-2 rounded-lg transition-colors ${taskBgClass}`}
+        className={`group flex items-start gap-2 sm:gap-3 p-2.5 sm:p-2 rounded-lg transition-colors ${taskBgClass}`}
       >
         {isDraggable && (
-          <div className="drag-handle mt-1 flex-shrink-0 text-stone-300 cursor-grab active:cursor-grabbing transition-opacity touch-pan-y">
-            <GripVertical size={14} />
+          <div className="drag-handle mt-1 flex-shrink-0 text-stone-300 cursor-grab active:cursor-grabbing transition-opacity touch-pan-y p-1 -m-1">
+            <GripVertical size={16} />
           </div>
         )}
         <motion.button 
           whileTap={{ scale: 0.8 }}
           onClick={() => toggleTask(key, task.id)}
-          className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+          className={`mt-0.5 flex-shrink-0 w-6 h-6 sm:w-5 sm:h-5 rounded border flex items-center justify-center transition-colors ${
             task.completed 
               ? (isWeeklyGoal ? 'bg-orange-400 border-orange-400 text-white' : 'bg-emerald-400 border-emerald-400 text-white')
               : `border-stone-300 text-stone-100/0 ${isWeeklyGoal ? 'hover:border-orange-400' : 'hover:border-emerald-400'}`
@@ -861,7 +861,7 @@ ${taskTexts || 'タスクなし'}
         
         <button 
           onClick={() => cycleTaskPriority(key, task.id)}
-          className={`mt-0.5 p-1 rounded hover:bg-stone-200 transition-colors flex-shrink-0 ${
+          className={`mt-0.5 p-1.5 sm:p-1 rounded hover:bg-stone-200 transition-colors flex-shrink-0 ${
             task.completed ? 'text-stone-300' : getPriorityColor(task.priority || 'low')
           }`}
           title="優先度を変更 (低・中・高)"
@@ -871,7 +871,7 @@ ${taskTexts || 'タスクなし'}
 
         <button 
           onClick={() => cycleTaskRecurrence(key, task.id)}
-          className={`mt-0.5 p-1 rounded transition-colors flex-shrink-0 flex items-center ${
+          className={`mt-0.5 p-1.5 sm:p-1 rounded transition-colors flex-shrink-0 flex items-center ${
             task.completed ? 'text-stone-300' : getRecurrenceColor(task.recurrence)
           }`}
           title={`繰り返し: ${getRecurrenceLabel(task.recurrence)}`}
@@ -885,7 +885,7 @@ ${taskTexts || 'タスクなし'}
         </button>
 
         <div 
-          className={`mt-0.5 relative flex items-center p-1 rounded transition-colors flex-shrink-0 cursor-pointer ${
+          className={`mt-0.5 relative flex items-center p-1.5 sm:p-1 rounded transition-colors flex-shrink-0 cursor-pointer ${
             task.completed ? 'text-stone-300' : getCategoryTheme(task.category).btnBgClass
           }`}
           title="カテゴリを変更"
@@ -1037,7 +1037,7 @@ ${taskTexts || 'タスクなし'}
               {isWeeklyGoal && (
                 <button 
                   onClick={() => copyToToday(task)}
-                  className="text-stone-300 hover:text-emerald-500 p-1"
+                  className="text-stone-300 hover:text-emerald-500 p-1.5 sm:p-1"
                   title="今日のタスクにコピー"
                 >
                   <CalendarPlus size={14} />
@@ -1053,14 +1053,14 @@ ${taskTexts || 'タスクなし'}
                   setEditTaskRecurrence(task.recurrence || 'none');
                   setEditTaskCategory(task.category || 'none');
                 }}
-                className="text-stone-300 hover:text-blue-400 p-1"
+                className="text-stone-300 hover:text-blue-400 p-1.5 sm:p-1"
                 aria-label="編集"
               >
                 <Pencil size={14} />
               </button>
               <button 
                 onClick={() => deleteTask(key, task.id)}
-                className="text-stone-300 hover:text-red-400 p-1"
+                className="text-stone-300 hover:text-red-400 p-1.5 sm:p-1"
                 aria-label="削除"
               >
                 <Trash2 size={14} />
@@ -1217,7 +1217,7 @@ ${taskTexts || 'タスクなし'}
       <div 
         key={key} 
         ref={(el) => cardRefs.current[key] = el}
-        className={`bg-white rounded-2xl shadow-sm border p-4 flex flex-col transition-all duration-300 ${
+        className={`bg-white rounded-2xl shadow-sm border p-3 sm:p-4 flex flex-col transition-all duration-300 ${
           isMonthlyGoal
             ? 'border-blue-200 bg-blue-50/30 w-full mb-6'
             : isWeeklyGoal 
@@ -1755,7 +1755,7 @@ ${taskTexts || 'タスクなし'}
 
   return (
     <div className="min-h-screen bg-[#fdfbf7] text-stone-800 font-sans selection:bg-stone-200">
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-12">
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
           <div>
             <div className="flex items-center gap-3 flex-wrap">
@@ -1774,8 +1774,8 @@ ${taskTexts || 'タスクなし'}
             </div>
             <p className="text-stone-500 mt-1">1週間のやる事リスト</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
-            <div className="flex items-center bg-white border border-stone-200 shadow-sm rounded-full px-3 py-2.5 text-sm flex-grow sm:flex-grow-0 justify-center">
+          <div className="grid grid-cols-2 sm:flex flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 w-full lg:w-auto">
+            <div className="col-span-2 sm:col-span-1 flex items-center bg-white border border-stone-200 shadow-sm rounded-full px-3 py-2.5 text-sm justify-center">
               <span className="text-stone-500 mr-2 whitespace-nowrap">週の開始:</span>
               <select
                 value={startOfWeek}
@@ -1789,28 +1789,28 @@ ${taskTexts || 'タスクなし'}
             </div>
             <button 
               onClick={() => setIsCategoryModalOpen(true)}
-              className="flex items-center justify-center gap-2 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 text-stone-700 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-grow sm:flex-grow-0"
+              className="flex items-center justify-center gap-2 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 text-stone-700 px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
             >
               <Tag size={16} />
               ラベル管理
             </button>
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center justify-center gap-2 bg-gradient-to-br from-stone-800 to-stone-700 hover:from-stone-700 hover:to-stone-600 text-white shadow-sm px-4 py-2.5 rounded-full text-sm font-medium transition-all whitespace-nowrap flex-grow sm:flex-grow-0"
+              className="flex items-center justify-center gap-2 bg-gradient-to-br from-stone-800 to-stone-700 hover:from-stone-700 hover:to-stone-600 text-white shadow-sm px-4 py-2.5 rounded-full text-sm font-medium transition-all"
             >
               <RotateCcw size={16} />
               新しい週
             </button>
             <button 
               onClick={startNewMonth}
-              className="flex items-center justify-center gap-2 bg-gradient-to-br from-indigo-700 to-purple-800 hover:from-indigo-800 hover:to-purple-900 text-white shadow-sm px-4 py-2.5 rounded-full text-sm font-medium transition-all whitespace-nowrap w-full sm:w-auto mt-2 sm:mt-0"
+              className="col-span-2 sm:col-span-1 flex items-center justify-center gap-2 bg-gradient-to-br from-indigo-700 to-purple-800 hover:from-indigo-800 hover:to-purple-900 text-white shadow-sm px-4 py-2.5 rounded-full text-sm font-medium transition-all"
             >
               <CalendarDays size={16} />
               新しい月を始める
             </button>
             <button
               onClick={exportData}
-              className="flex items-center justify-center gap-2 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 text-stone-700 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-grow sm:flex-grow-0"
+              className="flex items-center justify-center gap-2 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 text-stone-700 px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
               title="データをエクスポート"
             >
               <Download size={16} />
@@ -1818,7 +1818,7 @@ ${taskTexts || 'タスクなし'}
             </button>
             <button
               onClick={() => importFileRef.current?.click()}
-              className="flex items-center justify-center gap-2 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 text-stone-700 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-grow sm:flex-grow-0"
+              className="flex items-center justify-center gap-2 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 text-stone-700 px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
               title="データをインポート"
             >
               <Upload size={16} />
@@ -1834,7 +1834,7 @@ ${taskTexts || 'タスクなし'}
           </div>
         </header>
 
-        <div className="flex space-x-6 mb-8 border-b border-stone-200">
+        <div className="flex space-x-4 sm:space-x-6 mb-6 sm:mb-8 border-b border-stone-200 overflow-x-auto">
           <button 
             className={`pb-3 px-2 border-b-2 font-bold text-sm transition-colors flex items-center gap-2 ${activeTab === 'tasks' ? 'border-stone-800 text-stone-800' : 'border-transparent text-stone-400 hover:text-stone-600'}`}
             onClick={() => setActiveTab('tasks')}
@@ -1865,7 +1865,7 @@ ${taskTexts || 'タスクなし'}
               </div>
               
               {/* Days Grid */}
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                 {displayDays.map(day => renderCard(day, 'daily'))}
               </div>
             </div>
