@@ -36,6 +36,13 @@ type HistoryEntry = {
   sourceKey: string;
 };
 
+type MonthlyHistoryEntry = {
+  id: string;
+  monthLabel: string;
+  completionRate: number;
+  timestamp: string;
+};
+
 type WeekData = {
   [key: string]: Task[];
 };
@@ -141,6 +148,15 @@ export default function App() {
     }
     return [];
   });
+  
+  const [monthlyHistory, setMonthlyHistory] = useState<MonthlyHistoryEntry[]>(() => {
+    const saved = localStorage.getItem('achievement_history');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return [];
+  });
+
   const [sortModes, setSortModes] = useState<{ [key: string]: SortMode }>(() => {
     const saved = localStorage.getItem('weeklySortModes');
     if (saved) {
@@ -365,6 +381,10 @@ ${taskTexts || 'タスクなし'}
     localStorage.setItem('weeklyTasksHistory', JSON.stringify(history));
   }, [history]);
 
+  useEffect(() => {
+    localStorage.setItem('achievement_history', JSON.stringify(monthlyHistory));
+  }, [monthlyHistory]);
+
   const addTask = (key: string, period: Period = 'none') => {
     const inputKey = period === 'none' ? key : `${key}-${period}`;
     const text = newTaskText[inputKey]?.trim();
@@ -499,13 +519,60 @@ ${taskTexts || 'タスクなし'}
     setWeekData(prev => {
       const newData = { ...prev };
       ALL_KEYS.forEach(key => {
+        if (key === MONTHLY_GOAL_KEY) {
+          return; // 毎月の目標は一切変更・削除しない
+        }
         newData[key] = newData[key]
-          .filter(task => task.recurrence && task.recurrence !== 'none')
-          .map(task => ({ ...task, completed: false }));
+          .filter(task => {
+            // 未完了のものは残す
+            if (!task.completed) return true;
+            // 完了済みでも繰り返し設定があるものは残す（リセットされる）
+            if (task.recurrence && task.recurrence !== 'none') return true;
+            return false;
+          })
+          .map(task => ({
+            ...task,
+            completed: false,
+            progress: task.progress !== undefined ? 0 : undefined
+          }));
       });
       return newData;
     });
     setIsModalOpen(false);
+  };
+
+  const startNewMonth = () => {
+    if (window.confirm("今月の記録をリセットし、月間目標の達成率を履歴に保存してもよろしいですか？")) {
+      const monthlyTasks = weekData[MONTHLY_GOAL_KEY] || [];
+      if (monthlyTasks.length > 0) {
+        const rate = getProgress(MONTHLY_GOAL_KEY);
+        const now = new Date();
+        const monthLabel = `${now.getFullYear()}年${now.getMonth() + 1}月`;
+        setMonthlyHistory(prev => [...prev, {
+          id: crypto.randomUUID(),
+          monthLabel,
+          completionRate: rate,
+          timestamp: now.toISOString()
+        }]);
+      }
+
+      setWeekData(prev => ({
+        ...prev,
+        [MONTHLY_GOAL_KEY]: []
+      }));
+    }
+  };
+
+  const deleteMonthlyHistoryEntry = (id: string) => {
+    if (window.confirm("この月の履歴を削除してもよろしいですか？")) {
+      setMonthlyHistory(prev => prev.filter(entry => entry.id !== id));
+    }
+  };
+
+  const clearAllMonthlyHistory = () => {
+    if (window.confirm("すべての月間履歴を削除してもよろしいですか？")) {
+      setMonthlyHistory([]);
+    }
   };
 
   const clearAbsolutelyAllTasks = () => {
@@ -1172,8 +1239,153 @@ ${taskTexts || 'タスクなし'}
     const maxCount = Math.max(...chartData.map(d => d.count), 1);
     const totalLast7Days = chartData.reduce((sum, d) => sum + d.count, 0);
 
+    const displayMonthlyHistory = monthlyHistory.slice(-12);
+
+    const monthlyChartData = {
+      labels: displayMonthlyHistory.map(e => e.monthLabel),
+      datasets: [
+        {
+          type: 'line' as const,
+          label: 'トレンド',
+          data: displayMonthlyHistory.map(e => e.completionRate),
+          borderColor: '#475569',
+          borderWidth: 2,
+          pointBackgroundColor: '#ffffff',
+          pointBorderColor: '#475569',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          fill: false,
+          tension: 0.3,
+          order: 1
+        },
+        {
+          type: 'bar' as const,
+          label: '達成率',
+          data: displayMonthlyHistory.map(e => e.completionRate),
+          backgroundColor: displayMonthlyHistory.map(e => e.completionRate >= 80 ? 'rgba(255, 215, 0, 0.85)' : 'rgba(59, 130, 246, 0.85)'),
+          hoverBackgroundColor: displayMonthlyHistory.map(e => e.completionRate >= 80 ? 'rgba(255, 215, 0, 1)' : 'rgba(59, 130, 246, 1)'),
+          borderColor: displayMonthlyHistory.map(e => e.completionRate >= 80 ? '#FFD700' : '#3B82F6'),
+          borderWidth: 1,
+          borderRadius: 6,
+          barPercentage: 0.6,
+          order: 2
+        }
+      ]
+    };
+
+    const monthlyChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 1200,
+        easing: 'easeOutQuart' as const,
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          ticks: {
+            stepSize: 20,
+            callback: (value: any) => `${value}%`,
+            font: { family: 'inherit', size: 11 },
+            color: '#94a3b8'
+          },
+          grid: {
+            color: '#f1f5f9',
+          },
+          border: { display: false }
+        },
+        x: {
+          ticks: {
+            font: { family: 'inherit', size: 12 },
+            color: '#64748b'
+          },
+          grid: {
+            display: false,
+          },
+          border: { display: false }
+        }
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top' as const,
+          labels: {
+            usePointStyle: true,
+            boxWidth: 8,
+            font: { family: 'inherit', size: 12 },
+            color: '#475569'
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(28, 25, 23, 0.95)',
+          titleFont: { family: 'inherit', size: 13 },
+          bodyFont: { family: 'inherit', size: 14, weight: 'bold' as const },
+          padding: 12,
+          cornerRadius: 8,
+          callbacks: {
+            label: (context: any) => `${context.dataset.label}: ${context.raw}%`
+          }
+        }
+      }
+    };
+
     return (
       <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+            <div className="flex items-center gap-3">
+              <div className="bg-indigo-100 p-2 rounded-xl text-indigo-600">
+                <CalendarDays size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-stone-800">月間目標の達成履歴</h3>
+                <p className="text-sm text-stone-500">これまでの振り返り</p>
+              </div>
+            </div>
+            {monthlyHistory.length > 0 && (
+              <button 
+                onClick={clearAllMonthlyHistory}
+                className="text-xs text-red-400 hover:text-red-600 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors w-full sm:w-auto border border-red-100 sm:border-transparent"
+              >
+                <Trash2 size={14} /> すべて削除
+              </button>
+            )}
+          </div>
+          
+          {monthlyHistory.length === 0 ? (
+            <p className="text-center text-stone-400 py-8 text-sm bg-stone-50 rounded-xl">
+              まだ履歴がありません。<br/>「新しい月を始める」を実行すると達成率が記録されます。
+            </p>
+          ) : (
+            <div className="flex flex-col gap-6">
+              <div className="h-72 w-full relative">
+                <ReactChart type="bar" data={monthlyChartData} options={monthlyChartOptions} />
+              </div>
+              
+              <div className="border-t border-stone-100 pt-5">
+                <p className="text-xs text-stone-500 mb-3 font-medium flex items-center gap-1"><Pencil size={12}/> 個別の履歴を管理</p>
+                <div className="flex flex-wrap gap-2">
+                  {monthlyHistory.map(entry => (
+                    <div key={entry.id} className="flex items-center gap-1 bg-stone-50 hover:bg-stone-100 transition-colors border border-stone-200 rounded-md pl-2.5 pr-1 py-1 text-xs text-stone-600">
+                      <span className="font-medium mr-1">{entry.monthLabel}</span>
+                      <span className="text-stone-400 mr-1">({entry.completionRate}%)</span>
+                      <button 
+                        onClick={() => deleteMonthlyHistoryEntry(entry.id)} 
+                        className="text-stone-400 hover:text-red-500 hover:bg-red-50 p-1 rounded transition-colors"
+                        title="削除"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="bg-white rounded-2xl shadow-sm border border-stone-100 p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="bg-orange-100 p-2 rounded-xl text-orange-600">
@@ -1370,13 +1582,13 @@ ${taskTexts || 'タスクなし'}
   return (
     <div className="min-h-screen bg-[#fdfbf7] text-stone-800 font-sans selection:bg-stone-200">
       <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-stone-900">Weekly Tasks</h1>
             <p className="text-stone-500 mt-1">1週間のやる事リスト</p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-white border border-stone-200 shadow-sm rounded-full px-3 py-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
+            <div className="flex items-center bg-white border border-stone-200 shadow-sm rounded-full px-3 py-2.5 text-sm flex-grow sm:flex-grow-0 justify-center">
               <span className="text-stone-500 mr-2 whitespace-nowrap">週の開始:</span>
               <select
                 value={startOfWeek}
@@ -1390,17 +1602,24 @@ ${taskTexts || 'タスクなし'}
             </div>
             <button 
               onClick={() => setIsCategoryModalOpen(true)}
-              className="flex items-center gap-2 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 text-stone-700 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap"
+              className="flex items-center justify-center gap-2 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 text-stone-700 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-grow sm:flex-grow-0"
             >
               <Tag size={16} />
               ラベル管理
             </button>
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 bg-gradient-to-br from-stone-800 to-stone-700 hover:from-stone-700 hover:to-stone-600 text-white shadow-sm px-4 py-2.5 rounded-full text-sm font-medium transition-all whitespace-nowrap"
+              className="flex items-center justify-center gap-2 bg-gradient-to-br from-stone-800 to-stone-700 hover:from-stone-700 hover:to-stone-600 text-white shadow-sm px-4 py-2.5 rounded-full text-sm font-medium transition-all whitespace-nowrap flex-grow sm:flex-grow-0"
             >
               <RotateCcw size={16} />
               新しい週
+            </button>
+            <button 
+              onClick={startNewMonth}
+              className="flex items-center justify-center gap-2 bg-gradient-to-br from-indigo-700 to-purple-800 hover:from-indigo-800 hover:to-purple-900 text-white shadow-sm px-4 py-2.5 rounded-full text-sm font-medium transition-all whitespace-nowrap w-full sm:w-auto mt-2 sm:mt-0"
+            >
+              <CalendarDays size={16} />
+              新しい月を始める
             </button>
           </div>
         </header>
@@ -1612,7 +1831,7 @@ ${taskTexts || 'タスクなし'}
                   className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-medium py-3 px-4 rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
                 >
                   <Repeat size={16} />
-                  新しい週を始める（繰り返しタスク以外を削除）
+                  新しい週を始める（完了済みのタスクを削除）
                 </button>
                 <button 
                   onClick={clearAbsolutelyAllTasks}
