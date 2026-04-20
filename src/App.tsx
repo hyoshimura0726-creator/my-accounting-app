@@ -1146,6 +1146,8 @@ ${taskTexts || 'タスクなし'}
                     setList={(newState) => handleReorder(key, 'am', newState)}
                     handle=".drag-handle"
                     animation={150}
+                    ghostClass="opacity-30"
+                    dragClass="shadow-lg"
                     disabled={sortModes[key] && sortModes[key] !== 'creation'}
                     className="space-y-1.5 min-h-[50px]"
                   >
@@ -1179,6 +1181,8 @@ ${taskTexts || 'タスクなし'}
                     setList={(newState) => handleReorder(key, 'pm', newState)}
                     handle=".drag-handle"
                     animation={150}
+                    ghostClass="opacity-30"
+                    dragClass="shadow-lg"
                     disabled={sortModes[key] && sortModes[key] !== 'creation'}
                     className="space-y-1.5 min-h-[50px]"
                   >
@@ -1201,6 +1205,8 @@ ${taskTexts || 'タスクなし'}
                   setList={(newState) => handleReorder(key, 'none', newState)}
                   handle=".drag-handle"
                   animation={150}
+                  ghostClass="opacity-30"
+                  dragClass="shadow-lg"
                   disabled={sortModes[key] && sortModes[key] !== 'creation'}
                   className="space-y-2 min-h-[50px]"
                 >
