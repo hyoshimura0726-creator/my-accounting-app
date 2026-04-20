@@ -676,7 +676,7 @@ ${taskTexts || 'タスクなし'}
         className={`group flex items-start gap-3 p-2 rounded-lg transition-colors ${taskBgClass}`}
       >
         {isDraggable && (
-          <div className="drag-handle mt-1 flex-shrink-0 text-stone-300 cursor-grab active:cursor-grabbing transition-opacity">
+          <div className="drag-handle mt-1 flex-shrink-0 text-stone-300 cursor-grab active:cursor-grabbing transition-opacity touch-pan-y">
             <GripVertical size={14} />
           </div>
         )}
@@ -1148,6 +1148,8 @@ ${taskTexts || 'タスクなし'}
                     animation={150}
                     ghostClass="opacity-30"
                     dragClass="shadow-lg"
+                    delay={200}
+                    delayOnTouchOnly={true}
                     disabled={sortModes[key] && sortModes[key] !== 'creation'}
                     className="space-y-1.5 min-h-[50px]"
                   >
@@ -1183,6 +1185,8 @@ ${taskTexts || 'タスクなし'}
                     animation={150}
                     ghostClass="opacity-30"
                     dragClass="shadow-lg"
+                    delay={200}
+                    delayOnTouchOnly={true}
                     disabled={sortModes[key] && sortModes[key] !== 'creation'}
                     className="space-y-1.5 min-h-[50px]"
                   >
@@ -1207,8 +1211,10 @@ ${taskTexts || 'タスクなし'}
                   animation={150}
                   ghostClass="opacity-30"
                   dragClass="shadow-lg"
+                  delay={200}
+                  delayOnTouchOnly={true}
                   disabled={sortModes[key] && sortModes[key] !== 'creation'}
-                  className="space-y-2 min-h-[50px]"
+                  className="space-y-2 min-h-[50px] pb-2"
                 >
                   {sortedTasks.map((task, index) => renderTaskItem(task, key, type, index, 'none'))}
                 </ReactSortable>
