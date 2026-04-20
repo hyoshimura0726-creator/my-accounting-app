@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Check, Plus, Trash2, RotateCcw, X, Target, Pencil, Flag, ArrowUpDown, Repeat, CalendarPlus, CalendarDays, BarChart3, Trophy, Calendar, AlertCircle, GripVertical, Bell, Sun, Moon, Tag, PieChart, Sparkles, Loader2 } from 'lucide-react';
+import { Check, Plus, Trash2, RotateCcw, X, Target, Pencil, Flag, ArrowUpDown, Repeat, CalendarPlus, CalendarDays, BarChart3, Trophy, Calendar, AlertCircle, GripVertical, Bell, Sun, Moon, Tag, PieChart, Sparkles, Loader2, Download, Upload, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ReactSortable } from 'react-sortablejs';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
@@ -45,6 +45,22 @@ type MonthlyHistoryEntry = {
 
 type WeekData = {
   [key: string]: Task[];
+};
+
+type BackupData = {
+  version: number;
+  exportedAt: string;
+  weekData: WeekData;
+  history: HistoryEntry[];
+  monthlyHistory: MonthlyHistoryEntry[];
+  categories: CategoryData[];
+  sortModes: { [key: string]: SortMode };
+  startOfWeek: number;
+};
+
+type StreakData = {
+  currentStreak: number;
+  lastCompletedDate: string | null;
 };
 
 const MONTHLY_GOAL_KEY = '毎月の目標';
@@ -167,6 +183,23 @@ export default function App() {
   
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [streakData, setStreakData] = useState<StreakData>(() => {
+    const saved = localStorage.getItem('application_streak');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (
+          parsed &&
+          typeof parsed === 'object' &&
+          typeof parsed.currentStreak === 'number' &&
+          (typeof parsed.lastCompletedDate === 'string' || parsed.lastCompletedDate === null)
+        ) {
+          return parsed;
+        }
+      } catch (e) {}
+    }
+    return { currentStreak: 0, lastCompletedDate: null };
+  });
 
   // 週の始まりの設定（0=日曜日, 1=月曜日, ...）
   const [startOfWeek, setStartOfWeek] = useState<number>(() => {
@@ -179,6 +212,99 @@ export default function App() {
 
   const notifiedTasks = useRef<Set<string>>(new Set());
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const importFileRef = useRef<HTMLInputElement | null>(null);
+
+  const isTaskLike = (value: any): value is Task => {
+    return (
+      value &&
+      typeof value === 'object' &&
+      typeof value.id === 'string' &&
+      typeof value.text === 'string' &&
+      typeof value.completed === 'boolean'
+    );
+  };
+
+  const isValidWeekData = (value: any): value is WeekData => {
+    if (!value || typeof value !== 'object') return false;
+    return ALL_KEYS.every((key) => Array.isArray(value[key]) && value[key].every(isTaskLike));
+  };
+
+  const isValidBackupData = (value: any): value is BackupData => {
+    if (!value || typeof value !== 'object') return false;
+    if (!isValidWeekData(value.weekData)) return false;
+    if (!Array.isArray(value.history)) return false;
+    if (!Array.isArray(value.monthlyHistory)) return false;
+    if (!Array.isArray(value.categories)) return false;
+    if (!value.sortModes || typeof value.sortModes !== 'object') return false;
+    if (typeof value.startOfWeek !== 'number') return false;
+    return true;
+  };
+
+  const exportData = () => {
+    const backupData: BackupData = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      weekData,
+      history,
+      monthlyHistory,
+      categories,
+      sortModes,
+      startOfWeek,
+    };
+
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'task-backup.json';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  };
+
+  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        if (!isValidBackupData(parsed)) {
+          window.alert('バックアップ形式が正しくありません。');
+          return;
+        }
+
+        const normalizedWeekData = { ...initialData };
+        ALL_KEYS.forEach((key) => {
+          normalizedWeekData[key] = parsed.weekData[key] ?? [];
+        });
+
+        setWeekData(normalizedWeekData);
+        setHistory(parsed.history);
+        setMonthlyHistory(parsed.monthlyHistory);
+        setCategories(parsed.categories);
+        setSortModes(parsed.sortModes);
+        setStartOfWeek(parsed.startOfWeek);
+
+        localStorage.setItem('weeklyTasks', JSON.stringify(normalizedWeekData));
+        localStorage.setItem('weeklyTasksHistory', JSON.stringify(parsed.history));
+        localStorage.setItem('achievement_history', JSON.stringify(parsed.monthlyHistory));
+        localStorage.setItem('customCategories', JSON.stringify(parsed.categories));
+        localStorage.setItem('weeklySortModes', JSON.stringify(parsed.sortModes));
+        localStorage.setItem('weeklyStartOfWeek', parsed.startOfWeek.toString());
+
+        window.alert('バックアップを読み込みました。');
+      } catch (error) {
+        console.error('Import failed:', error);
+        window.alert('JSONの読み込みに失敗しました。');
+      } finally {
+        event.target.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const analyzeTasksWithAI = async () => {
     try {
@@ -276,10 +402,10 @@ ${taskTexts || 'タスクなし'}
 
       ALL_KEYS.forEach(key => {
         weekData[key].forEach(task => {
-          if (!task.completed && task.dueDate === currentDate && task.reminderTime === currentTime) {
+          if (!task.completed && task.reminderTime === currentTime) {
             const notificationKey = `${task.id}-${currentDate}-${currentTime}`;
             if (!notifiedTasks.current.has(notificationKey)) {
-              new Notification('タスクのリマインダー', {
+              new Notification('タスクの時間です！', {
                 body: task.text,
                 icon: '/favicon.ico' // Optional: add an icon if you have one
               });
@@ -385,6 +511,37 @@ ${taskTexts || 'タスクなし'}
     localStorage.setItem('achievement_history', JSON.stringify(monthlyHistory));
   }, [monthlyHistory]);
 
+  useEffect(() => {
+    localStorage.setItem('application_streak', JSON.stringify(streakData));
+  }, [streakData]);
+
+  const formatDateKey = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const updateStreakOnCompletion = () => {
+    setStreakData(prev => {
+      const today = new Date();
+      const todayKey = formatDateKey(today);
+      if (prev.lastCompletedDate === todayKey) {
+        return prev;
+      }
+
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayKey = formatDateKey(yesterday);
+
+      const nextStreak = prev.lastCompletedDate === yesterdayKey ? prev.currentStreak + 1 : 1;
+      return {
+        currentStreak: nextStreak,
+        lastCompletedDate: todayKey
+      };
+    });
+  };
+
   const addTask = (key: string, period: Period = 'none') => {
     const inputKey = period === 'none' ? key : `${key}-${period}`;
     const text = newTaskText[inputKey]?.trim();
@@ -431,6 +588,7 @@ ${taskTexts || 'タスクなし'}
         completedAt: new Date().toISOString(),
         sourceKey: key
       }]);
+      updateStreakOnCompletion();
     } else {
       setHistory(prev => prev.filter(entry => entry.taskId !== taskId));
     }
@@ -1600,7 +1758,20 @@ ${taskTexts || 'タスクなし'}
       <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-stone-900">Weekly Tasks</h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-3xl font-bold tracking-tight text-stone-900">Weekly Tasks</h1>
+              <motion.div
+                key={streakData.currentStreak}
+                initial={{ scale: 0.85, opacity: 0.6 }}
+                animate={{ scale: [0.85, 1.08, 1], opacity: 1 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-sm font-semibold"
+                title="連続達成日数"
+              >
+                <Flame size={15} className="text-orange-500" />
+                {streakData.currentStreak} Days
+              </motion.div>
+            </div>
             <p className="text-stone-500 mt-1">1週間のやる事リスト</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
@@ -1637,6 +1808,29 @@ ${taskTexts || 'タスクなし'}
               <CalendarDays size={16} />
               新しい月を始める
             </button>
+            <button
+              onClick={exportData}
+              className="flex items-center justify-center gap-2 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 text-stone-700 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-grow sm:flex-grow-0"
+              title="データをエクスポート"
+            >
+              <Download size={16} />
+              エクスポート
+            </button>
+            <button
+              onClick={() => importFileRef.current?.click()}
+              className="flex items-center justify-center gap-2 bg-white border border-stone-200 shadow-sm hover:bg-stone-50 text-stone-700 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-grow sm:flex-grow-0"
+              title="データをインポート"
+            >
+              <Upload size={16} />
+              インポート
+            </button>
+            <input
+              ref={importFileRef}
+              type="file"
+              accept=".json,application/json"
+              onChange={importData}
+              className="hidden"
+            />
           </div>
         </header>
 
