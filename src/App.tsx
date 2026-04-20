@@ -1037,6 +1037,9 @@ ${taskTexts || 'タスクなし'}
     const isMonthlyGoal = type === 'monthly';
     const isWeeklyGoal = type === 'weekly';
     const isDaily = type === 'daily';
+    const sortableTouchFallbackProps = isWeeklyGoal
+      ? { forceFallback: true, fallbackOnBody: true, touchStartThreshold: 4 }
+      : {};
 
     const today = new Date();
     const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -1213,6 +1216,7 @@ ${taskTexts || 'タスクなし'}
                   dragClass="shadow-lg"
                   delay={200}
                   delayOnTouchOnly={true}
+                  {...sortableTouchFallbackProps}
                   disabled={sortModes[key] && sortModes[key] !== 'creation'}
                   className="space-y-2 min-h-[50px] pb-2"
                 >
